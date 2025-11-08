@@ -60,6 +60,7 @@ services:
       - CPU_PER_WORKER=15
       - WORKERS=1
       - FRONTEND_URL=http://localhost:8001
+      - PASSWORDS_ENABLED=true
     volumes:
       - /home/<XXXXX>/tmp/comper:/comper/storage
       - /home/<XXXXX>/your-local-repos:/comper/repos
