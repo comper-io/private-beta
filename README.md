@@ -56,7 +56,7 @@ services:
         condition: service_started
     environment:
       - DATABASE_URL=postgres://loco:loco@postgres:5432/comper
-      - JWT_SECRET=QWVHb29Tb2U3YQo=
+      - JWT_SECRET=ZWVuZzh0ZWl0MnpvaDRXYTgK
       - CPU_PER_WORKER=15
       - WORKERS=1
       - FRONTEND_URL=http://localhost:8001
