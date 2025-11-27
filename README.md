@@ -4,6 +4,8 @@ Hey there, welcome to the Comper private beta for developers.
 
 You’ll get an access key from Jouke, which is a docker hub token.
 
+You can deploy using Docker Compose or Kubernetes, we're currently working on a Helm chart, so ask us about it.
+
 Make sure you have docker (with docker compose support) on your system.
 
 Then run:
@@ -57,8 +59,7 @@ services:
     environment:
       - DATABASE_URL=postgres://loco:loco@postgres:5432/comper
       - JWT_SECRET=ZWVuZzh0ZWl0MnpvaDRXYTgK
-      - CPU_PER_WORKER=15
-      - WORKERS=1
+      - WORKERS=2
       - FRONTEND_URL=http://localhost:8001
       - PASSWORDS_ENABLED=true
     volumes:
@@ -66,7 +67,21 @@ services:
       - /home/<XXXXX>/your-local-repos:/comper/repos
 ```
 
-Replace the CPU and XXX placeholders based on your system. If you're paranoid and change the JWT secret, change it to something 
+Replace the XXX placeholders based on your system. If you're paranoid and change the JWT secret, change it to something 
+
+## System requirements
+
+### Database
+
+We use Postgres and use max 50 connections by default, make sure your DB can handle that. Size it to 1GB RAM + 5GB disk, and expand for larger teams.
+
+### Disk
+
+Comper will clone all your repos and maintain a lot of metadata, so for the non-database part, expect to use your git repo size * 2. We suggest starting with 10GB and expanding when needed.
+
+### CPU
+
+During the initial sync, we use a LOT of CPU resources to analyse all the git repos. The more CPU you throw at it, the faster it gets. After we're done analyzing the git repos, we use next to nothing.
 
 
 ## Starting up
@@ -75,7 +90,9 @@ Run `docker compose up -d`
 
 ## Repo analysis
 
-I suggest going with locally cloned repos for now. Just clone the repos that you're interested in to `/home/<XXXXX>/your-local-repos` or whatever you put in the docker compose file. Then comper will be able to scan them.
+You can sync with your Github, Gitlab, Azure DevOps or Bitbucket account. For Bitbucket, we suggest going with personal access tokens, as the other solutions require premium plans. Alternatively, you can use local disk if you just want to look at locally checked out repos.
+
+If you go with locally cloned repos. Just clone the repos that you're interested in to `/home/<XXXXX>/your-local-repos` or whatever you put in the docker compose file. Then comper will be able to scan them.
 
 ## Create an account
 
@@ -83,10 +100,25 @@ Just do a sign-up in the system. Go to `localhost:8001` to inspect it.
 
 ## Create a board
 
-Create a board, then navigate to settings on the left, go to sources and use a directory `/comper/repos`. It will discover the repos and start analyzing them.
+Create a board, then navigate to settings on the left, go to sources and configure your source. For local dirs: use a directory `/comper/repos`. Comper will now start ananlyzing the repos in four steps for each:
+
+1. fetch
+2. shallow inspection, where we just look at what is in the HEAD commit
+3. history parsing, where we look at contribution stats over time
+4. deep inspection, where we get a lot of authorship stats (think massive `git blame` stats)
+
+After step 2, we already show something on the board, and you can use "Auto Layout" and save to put things in a nice place. However, statistics won't work yet and authorship stats also won't work.
+
+In these steps you can expect a LOT of CPU, disk and network traffic.
+
+In the bottom left you can see that progress and queue of tasks. If the number says "0", we are completely done.
+
+Our feedback in the UI when there are errors isn't great yet, so keep an eye on the logs of the application to see if there are any errors.
 
 ## Deduplicate contributors
 
 When the analysis is underway, go to settings again, then to Contributors. The idea is to create "Contributors" from "Aliases". Each contributor (an actual person) might have multiple git aliases.
 
-Under "Active Duty" you can mark users as still being with the company or already left. This is useful for the bus factor calculation.
+Under "Active Duty" you can mark users as still being with the company or already left.
+
+Once you've done this, the bus factor calculation starts making sense.
