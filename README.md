@@ -62,6 +62,7 @@ services:
       - WORKERS=2
       - FRONTEND_URL=http://localhost:8001
       - PASSWORDS_ENABLED=true
+      - ALLOW_UNINVITED_SIGNUP_VIA_EMAIL=true
     volumes:
       - /home/<XXXXX>/tmp/comper:/comper/storage
       - /home/<XXXXX>/your-local-repos:/comper/repos
@@ -100,7 +101,7 @@ Just do a sign-up in the system. Go to `localhost:8001` to inspect it.
 
 ## Create a board
 
-Create a board, then navigate to settings on the left, go to sources and configure your source. For local dirs: use a directory `/comper/repos`. Comper will now start ananlyzing the repos in four steps for each:
+Create a board, then navigate to settings on the left, go to sources and configure your source. For local dirs: use a directory `/comper/repos`. Comper will now start analyzing the repos in four steps for each:
 
 1. fetch
 2. shallow inspection, where we just look at what is in the HEAD commit
