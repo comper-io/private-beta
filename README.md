@@ -23,6 +23,7 @@ Then use the following docker-compose.yml file:
 ```
 volumes:
   postgres:
+  osv_scanner_cache:
 
 services:
   postgres:
@@ -41,8 +42,30 @@ services:
       timeout: 5s
       retries: 5
 
+  osv-scanner:
+    image: comperio/osv-scanner-server:latest
+    platform: linux/amd64
+    command:
+      [
+        "scan",
+        "server",
+        "--listen",
+        "0.0.0.0:8002",
+        "--offline",
+        "--download-offline-databases",
+      ]
+    ports:
+      - 8002:8002
+    environment:
+      - OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY=/osv-cache
+    volumes:
+      - /home/<XXXXX>/tmp/comper:/comper/storage
+      - /tmp:/tmp
+      - osv_scanner_cache:/osv-cache
+
   mailhog:
     image: mailhog/mailhog
+    platform: linux/amd64
     ports:
       - 1025:1025
       - 8025:8025
@@ -55,6 +78,8 @@ services:
       postgres:
         condition: service_healthy
       mailhog:
+        condition: service_started
+      osv-scanner:
         condition: service_started
     environment:
       - DATABASE_URL=postgres://loco:loco@postgres:5432/comper
@@ -101,7 +126,7 @@ Just do a sign-up in the system. Go to `localhost:8001` to inspect it.
 
 ## Create a board
 
-Create a board, then navigate to settings on the left, go to sources and configure your source. For local dirs: use a directory `/comper/repos`. Comper will now start analyzing the repos in four steps for each:
+Create a board, then navigate to settings on the left, go to sources and configure your source. For local dirs: use a directory `/comper/repos`. Comper will now start ananlyzing the repos in four steps for each:
 
 1. fetch
 2. shallow inspection, where we just look at what is in the HEAD commit
