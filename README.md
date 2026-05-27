@@ -14,13 +14,11 @@ Then run:
 
 And use the token provided to you.
 
-Then use the following docker-compose.yml file:
-
+Then use the following `docker-compose.yml` file (set `JWT_SECRET` to a long random string before you start):
 
 ## Docker Compose File
 
-
-```
+```yaml
 volumes:
   postgres:
   osv_scanner_cache:
@@ -59,16 +57,9 @@ services:
     environment:
       - OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY=/osv-cache
     volumes:
-      - /home/<XXXXX>/tmp/comper:/comper/storage
+      - $HOME/tmp/comper:/comper/storage
       - /tmp:/tmp
       - osv_scanner_cache:/osv-cache
-
-  mailhog:
-    image: mailhog/mailhog
-    platform: linux/amd64
-    ports:
-      - 1025:1025
-      - 8025:8025
 
   app:
     image: comperio/comper:latest
@@ -77,29 +68,87 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      mailhog:
-        condition: service_started
       osv-scanner:
         condition: service_started
     environment:
       - DATABASE_URL=postgres://loco:loco@postgres:5432/comper
-      - JWT_SECRET=ZWVuZzh0ZWl0MnpvaDRXYTgK
-      - WORKERS=2
+      - JWT_SECRET=change-me-to-a-long-random-secret
+      - WORKERS=1
       - FRONTEND_URL=http://localhost:8001
+      # Required for email/password sign-up in the private beta (see below)
       - PASSWORDS_ENABLED=true
       - ALLOW_UNINVITED_SIGNUP_VIA_EMAIL=true
+      - SMTP_HOST=smtp.example.com
+      - SMTP_PORT=587
+      - SMTP_SECURE=true
+      - SMTP_USER=your-smtp-user
+      - SMTP_PASSWORD=your-smtp-password
     volumes:
-      - /home/<XXXXX>/tmp/comper:/comper/storage
-      - /home/<XXXXX>/your-local-repos:/comper/repos
+      - $HOME/tmp/comper:/comper/storage
+      - $HOME/your-local-repos:/comper/repos
 ```
 
-Replace the XXX placeholders based on your system. If you're paranoid and change the JWT secret, change it to something 
+Create the storage directory before starting: `mkdir -p $HOME/tmp/comper`. For local disk sources, clone repos into `$HOME/your-local-repos` (mounted at `/comper/repos` inside the container — must not overlap with `/comper/storage`).
+
+The app listens on port **8001** (metrics on **9464** inside the container). OSV scanner defaults to `http://osv-scanner:8002` via `OSV_SCANNER_URL`.
+
+## App environment variables
+
+The image reads settings from `config/production.yaml`. Anything under `settings:` or used for auth/mail can be overridden with environment variables on the `app` service. Common ones for this beta:
+
+| Variable | Default in image | Recommended for beta |
+| --- | --- | --- |
+| `JWT_SECRET` | (required) | Long random string |
+| `FRONTEND_URL` | (required) | `http://localhost:8001` (or your public URL) |
+| `WORKERS` | (required) | `1` (increase for larger teams) |
+| `DATABASE_URL` | (required) | `postgres://loco:loco@postgres:5432/comper` |
+| `PASSWORDS_ENABLED` | `false` | `true` |
+| `ALLOW_UNINVITED_SIGNUP_VIA_EMAIL` | `false` | `true` |
+| `SMTP_HOST` | (unset — mailer off) | Your SMTP server hostname |
+| `SMTP_PORT` | `1025` | Usually `587` with `SMTP_SECURE=true` |
+| `SMTP_SECURE` | `false` | `true` for STARTTLS (see below) |
+| `SMTP_USER` / `SMTP_PASSWORD` | (unset) | Both required when your provider uses auth |
+| `SMTP_FROM` | `Comper <mail@comper.io>` | e.g. `Comper <noreply@yourcompany.com>` |
+| `OSV_SCANNER_URL` | `http://osv-scanner:8002` | leave default |
+| `STORAGE_PATH` | `/comper/storage` | leave default (matches volume mount) |
+| `DEPLOYMENT_TIER` | `enterprise` | leave default |
+| `REMEMBER_ME_DEFAULT` | `true` | leave default |
+
+### SMTP (sign-up and password reset)
+
+Set `SMTP_HOST` to turn the mailer on. Without it, email/password sign-up will not work.
+
+`SMTP_SECURE` controls how Comper connects:
+
+| `SMTP_SECURE` | Connection | Typical port | Use when |
+| --- | --- | --- | --- |
+| `true` | STARTTLS (upgrade plain connection to TLS) | `587` | Most providers (SendGrid, Mailgun, Postmark, Amazon SES, Microsoft 365, Google Workspace, etc.) |
+| `false` | Plain SMTP, no TLS | `25` or `1025` | Local/dev only (e.g. Mailhog in your own compose stack) |
+
+**STARTTLS on 587 (recommended):**
+
+```yaml
+      - SMTP_HOST=smtp.example.com
+      - SMTP_PORT=587
+      - SMTP_SECURE=true
+      - SMTP_USER=your-smtp-user
+      - SMTP_PASSWORD=your-smtp-password
+      - SMTP_FROM=Comper <noreply@yourcompany.com>
+```
+
+**Not supported:** implicit TLS on port **465** (SMTPS). If your provider only offers 465, use their STARTTLS endpoint on 587 instead, or put an SMTP relay in front that accepts STARTTLS.
+
+**Auth:** `SMTP_USER` and `SMTP_PASSWORD` must both be set; if either is missing, Comper connects without SMTP authentication.
+
+**Sender address:** `SMTP_FROM` must be an address your provider allows you to send as (verified domain, mailbox, or “send as” permission).
+
+OAuth (Google, GitHub, Microsoft, GitLab) and SAML are configured via additional env vars when you set the corresponding `*_OAUTH_CLIENT_ID` / `SAML_*` values; see `production.yaml` in the main Comper repo for the full list.
 
 ## System requirements
 
 ### Database
 
-We use Postgres and use max 50 connections by default, make sure your DB can handle that. Size it to 1GB RAM + 5GB disk, and expand for larger teams.
+The app uses up to **50** database connections by default (`DB_MAX_CONNECTIONS`). Size Postgres to 1GB RAM + 5GB disk and expand for larger teams.
 
 ### Disk
 
@@ -118,15 +167,15 @@ Run `docker compose up -d`
 
 You can sync with your Github, Gitlab, Azure DevOps or Bitbucket account. For Bitbucket, we suggest going with personal access tokens, as the other solutions require premium plans. Alternatively, you can use local disk if you just want to look at locally checked out repos.
 
-If you go with locally cloned repos. Just clone the repos that you're interested in to `/home/<XXXXX>/your-local-repos` or whatever you put in the docker compose file. Then comper will be able to scan them.
+If you use locally cloned repos, clone them into `$HOME/your-local-repos` (or whatever host path you mount at `/comper/repos`).
 
 ## Create an account
 
-Just do a sign-up in the system. Go to `localhost:8001` to inspect it.
+Open http://localhost:8001 and sign up with email and password. Set `PASSWORDS_ENABLED`, `ALLOW_UNINVITED_SIGNUP_VIA_EMAIL`, and your SMTP settings as above so verification emails can be delivered.
 
 ## Create a board
 
-Create a board, then navigate to settings on the left, go to sources and configure your source. For local dirs: use a directory `/comper/repos`. Comper will now start ananlyzing the repos in four steps for each:
+Create a board, then navigate to settings on the left, go to sources and configure your source. For local dirs: use a path under `/comper/repos` (e.g. `/comper/repos/my-project`). Comper will now start analyzing the repos in four steps for each:
 
 1. fetch
 2. shallow inspection, where we just look at what is in the HEAD commit
