@@ -175,7 +175,22 @@ Open http://localhost:8001 and sign up with email and password. Set `PASSWORDS_E
 
 ## Create a board
 
-Create a board, then navigate to settings on the left, go to sources and configure your source. For local dirs: use a path under `/comper/repos` (e.g. `/comper/repos/my-project`). Comper will now start analyzing the repos in four steps for each:
+Create a board from the home screen.
+
+## Link an AI provider
+
+Comper uses an LLM for AI-powered code analysis and insights. After creating a board, open **Settings** (from the board UI), then under **Integrations** choose **AI providers**.
+
+1. Click **+ Add LLM Provider**
+2. Pick a preset: **OpenAI**, **Anthropic**, or **Gemini**
+3. Paste your API key and save
+4. Turn the provider **on** with the toggle so it shows **Active** (only one provider can be active at a time)
+
+Use the verify/refresh control to confirm the key works before you rely on AI features.
+
+## Configure sources
+
+In **Settings**, go to **Sources** and add your source. For local dirs: use a path under `/comper/repos` (e.g. `/comper/repos/my-project`). Comper will now start analyzing the repos in four steps for each:
 
 1. fetch
 2. shallow inspection, where we just look at what is in the HEAD commit
@@ -192,8 +207,6 @@ Our feedback in the UI when there are errors isn't great yet, so keep an eye on 
 
 ## Deduplicate contributors
 
-When the analysis is underway, go to settings again, then to Contributors. The idea is to create "Contributors" from "Aliases". Each contributor (an actual person) might have multiple git aliases.
+While analysis runs (or once aliases start appearing), open **Settings** → **Contributors**. Under **Unlinked Git Aliases**, click **Suggest links (AI)** to let Comper propose which git identities belong to the same person (requires an active AI provider). Review the suggestions and confirm or adjust them.
 
-Under "Active Duty" you can mark users as still being with the company or already left.
-
-Once you've done this, the bus factor calculation starts making sense.
+Once aliases are linked, contributor stats and bus factor start making sense.
