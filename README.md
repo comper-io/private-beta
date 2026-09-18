@@ -24,6 +24,7 @@ before you start (for example, generate one with `openssl rand -hex 32`):
 volumes:
   postgres:
   osv_scanner_cache:
+  agent_workspaces:
 
 services:
   postgres:
@@ -69,6 +70,28 @@ services:
     ports:
       - 8025:8025
 
+  agent:
+    image: comperio/comper-agent:latest
+    command: ["comper-agent-runner"]
+    user: "0:0"
+    restart: unless-stopped
+    environment:
+      - COMPER_AGENT_RUNNER_TOKEN=${COMPER_AGENT_RUNNER_TOKEN:-local-compose-agent-runner}
+      - AGENT_MAX_CONCURRENT=${AGENT_MAX_CONCURRENT:-4}
+    volumes:
+      - agent_workspaces:/tmp/comper-agent
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8090/healthz')",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   app:
     image: comperio/comper:latest
     ports:
@@ -80,6 +103,8 @@ services:
         condition: service_started
       mailhog:
         condition: service_started
+      agent:
+        condition: service_healthy
     environment:
       - DATABASE_URL=postgres://loco:loco@postgres:5432/comper
       - JWT_SECRET=change-me-to-a-long-random-secret
@@ -92,9 +117,14 @@ services:
       - SMTP_HOST=mailhog
       - SMTP_PORT=1025
       - SMTP_SECURE=false
+      - AGENT_RUNTIME=docker
+      - COMPER_AGENT_RUNNER_URL=http://agent:8090
+      - COMPER_AGENT_RUNNER_TOKEN=${COMPER_AGENT_RUNNER_TOKEN:-local-compose-agent-runner}
+      - COMPER_AGENT_FRONTEND_URL=http://app:8001
     volumes:
       - $HOME/tmp/comper:/comper/storage
       - $HOME/your-local-repos:/comper/repos
+      - agent_workspaces:/tmp/comper-agent
 ```
 
 Create the storage directory before starting: `mkdir -p $HOME/tmp/comper`. For local disk sources, clone repos into `$HOME/your-local-repos` (mounted at `/comper/repos` inside the container — must not overlap with `/comper/storage`).
@@ -127,6 +157,24 @@ The image reads settings from `config/production.yaml`. Anything under `settings
 | `STORAGE_PATH` | `/comper/storage` | leave default (matches volume mount) |
 | `DEPLOYMENT_TIER` | `enterprise` | leave default |
 | `REMEMBER_ME_DEFAULT` | `true` | leave default |
+| `AGENT_MAX_CONCURRENT` | `4` | Maximum concurrent agent sessions in the agent container |
+
+### Agent service
+
+Agent sessions run in the always-on `agent` service rather than in the web
+container. The app and agent share only the `agent_workspaces` volume. Each
+session gets its own directory and `pi` process, and up to four sessions run at
+once by default. Set `AGENT_MAX_CONCURRENT` in your shell or `.env` file to tune
+that limit for the available CPU and memory.
+
+The agent service runs as root inside its container so it can update workspace
+files created by the app service. It has no Docker socket or host filesystem
+mount beyond the shared workspace volume.
+
+The runner API is available only inside the Compose network and requires the
+same `COMPER_AGENT_RUNNER_TOKEN` in both services. The example has a local
+default so it starts without extra setup; set a random value in `.env` for any
+host where other containers can join the Compose network.
 
 ### SMTP (sign-up and password reset)
 
