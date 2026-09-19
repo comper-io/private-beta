@@ -121,6 +121,8 @@ services:
       - COMPER_AGENT_RUNNER_URL=http://agent:8090
       - COMPER_AGENT_RUNNER_TOKEN=${COMPER_AGENT_RUNNER_TOKEN:-local-compose-agent-runner}
       - COMPER_AGENT_FRONTEND_URL=http://app:8001
+      # Slow reasoning models can take several minutes before their first response bytes.
+      - COMPER_LLM_REQUEST_TIMEOUT_SECS=${COMPER_LLM_REQUEST_TIMEOUT_SECS:-600}
     volumes:
       - $HOME/tmp/comper:/comper/storage
       - $HOME/your-local-repos:/comper/repos
@@ -158,6 +160,7 @@ The image reads settings from `config/production.yaml`. Anything under `settings
 | `DEPLOYMENT_TIER` | `enterprise` | leave default |
 | `REMEMBER_ME_DEFAULT` | `true` | leave default |
 | `AGENT_MAX_CONCURRENT` | `4` | Maximum concurrent agent sessions in the agent container |
+| `COMPER_LLM_REQUEST_TIMEOUT_SECS` | `120` | `600` for slower reasoning models and OpenAI-compatible proxies |
 
 ### Agent service
 
@@ -277,6 +280,11 @@ Comper uses an LLM for AI-powered code analysis and insights. After creating a b
 4. Turn the provider **on** with the toggle so it shows **Active** (only one provider can be active at a time)
 
 Use the verify/refresh control to confirm the key works before you rely on AI features.
+
+LLM-powered repository analysis runs in the `app` service, not the `agent` service. The
+`COMPER_LLM_REQUEST_TIMEOUT_SECS` value is a per-read timeout: streaming responses may run longer
+as long as data keeps arriving, while a non-streaming provider must return its first response bytes
+within the configured time.
 
 ## Configure sources
 
