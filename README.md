@@ -113,6 +113,8 @@ services:
       # Required for email/password sign-up in the private beta (see below)
       - PASSWORDS_ENABLED=true
       - ALLOW_UNINVITED_SIGNUP_VIA_EMAIL=true
+      # Enables "Local disk" sources (repos mounted at /comper/repos below).
+      - ALLOW_DISK_SOURCES=true
       # Local verification mail is available at http://localhost:8025.
       - SMTP_HOST=mailhog
       - SMTP_PORT=1025
@@ -150,6 +152,7 @@ The image reads settings from `config/production.yaml`. Anything under `settings
 | `DATABASE_URL` | (required) | `postgres://loco:loco@postgres:5432/comper` |
 | `PASSWORDS_ENABLED` | `false` | `true` |
 | `ALLOW_UNINVITED_SIGNUP_VIA_EMAIL` | `false` | `true` |
+| `ALLOW_DISK_SOURCES` | `false` | `true` for local Compose; `false` on a shared or hosted install, since it lets users read paths on the server |
 | `SMTP_HOST` | (unset — mailer off) | `mailhog` locally; your SMTP hostname when deployed |
 | `SMTP_PORT` | `1025` | `1025` for MailHog; usually `587` for a provider |
 | `SMTP_SECURE` | `false` | `false` for MailHog; usually `true` for STARTTLS |
@@ -251,7 +254,7 @@ database.
 
 ## Repo analysis
 
-You can sync with your Github, Gitlab, Azure DevOps or Bitbucket account. For Bitbucket, we suggest going with personal access tokens, as the other solutions require premium plans. Alternatively, you can use local disk if you just want to look at locally checked out repos.
+You can sync with your Github, Gitlab, Azure DevOps or Bitbucket account. For Bitbucket, we suggest going with personal access tokens, as the other solutions require premium plans. Alternatively, you can use local disk if you just want to look at locally checked out repos. The "Local disk" source type only shows up when `ALLOW_DISK_SOURCES=true` is set on the `app` service (the Compose file above does this).
 
 If you use locally cloned repos, clone them into `$HOME/your-local-repos` (or whatever host path you mount at `/comper/repos`).
 
